@@ -159,15 +159,29 @@ const etqRar = r => `<span class="etq" style="background:${RARIDADES[r].cor}">${
 let map, jogMk, alcanceCirc, areaCirc, seguir = true;
 const camadaLugares = L.layerGroup(), camadaSpawns = L.layerGroup();
 function iniciarMapa() {
-  map = L.map('mapa', { zoomControl: false, minZoom: 15, maxZoom: 20, preferCanvas: true }).setView(LUG.centro, 17);
-  const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  map = L.map('mapa', { zoomControl: false, minZoom: 3, maxZoom: 20, preferCanvas: true, worldCopyJump: true }).setView(LUG.centro, 17);
+  const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd', maxZoom: 20, maxNativeZoom: 19,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
   }).addTo(map);
   let erros = 0, ok = 0;
   tiles.on('tileerror', () => { if (++erros >= 3 && ok === 0) $('#mapa').classList.add('sem-tiles'); });
   tiles.on('tileload', () => { ok++; $('#mapa').classList.remove('sem-tiles'); });
+  // Fora da UFMT o mapa fica esmaecido; o campus fica em destaque.
+  if (AREA_POLI) {
+    const mundo = [[-89, -360], [-89, 360], [89, 360], [89, -360]];
+    L.polygon([mundo, AREA_POLI], { stroke: false, fillColor: '#16352a', fillOpacity: 0.45, interactive: false }).addTo(map);
+  }
   if (GEO) desenharGeo();
+  // Alfinete para achar a UFMT quando o mapa está afastado
+  const pino = L.marker(LUG.centro, { icon: L.divIcon({ className: '', html: '<div class="pino-ufmt">📍 UFMT</div>', iconSize: [90, 30], iconAnchor: [45, 30] }), interactive: true });
+  pino.on('click', () => { seguir = true; map.setView(S.pos, 17); });
+  const pinoVis = () => {
+    const longe = map.getZoom() < 15;
+    if (longe) { pino.addTo(map); camadaLugares.remove(); camadaSpawns.remove(); jogMk.remove(); alcanceCirc.remove(); }
+    else { pino.remove(); camadaLugares.addTo(map); if (!EDITOR) camadaSpawns.addTo(map); jogMk.addTo(map); alcanceCirc.addTo(map); }
+  };
+  map.on('zoomend', pinoVis);
   areaCirc = L.circle(LUG.centro, { radius: LUG.raio, color: '#1f6f4a', weight: 2, dashArray: '8 8', fill: false, interactive: false });
   if (!AREA_POLI) areaCirc.addTo(map);
   camadaLugares.addTo(map); camadaSpawns.addTo(map);

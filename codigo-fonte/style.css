@@ -108,3 +108,5 @@ textarea{min-height:90px;font-size:12px;font-family:ui-monospace,monospace}
 .toast{position:absolute;z-index:2000;left:50%;top:calc(78px + var(--sat));transform:translateX(-50%);background:var(--tinta);color:#fff;padding:10px 16px;border-radius:14px;font-weight:700;font-size:14px;box-shadow:var(--sombra);max-width:90%;text-align:center;animation:sobe .2s}
 
 #mapa.zoom-baixo .rotulo{display:none}
+
+.pino-ufmt{background:#1f6f4a;color:#fff;font-weight:900;font-size:13px;padding:5px 9px;border-radius:14px;box-shadow:0 3px 8px rgba(0,0,0,.35);white-space:nowrap;text-align:center}
