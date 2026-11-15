@@ -123,3 +123,12 @@ textarea{min-height:90px;font-size:12px;font-family:ui-monospace,monospace}
 .conq.vazio{display:block;background:#fff;border-style:dashed;color:#6b7a72}
 .mk-arena{position:relative}
 .mk-dono{position:absolute;right:-12px;top:-12px;width:26px;height:26px;border-radius:50%;background:#fff6d5;border:2px solid #d4a017;display:grid;place-items:center;font-size:15px;box-shadow:0 2px 5px rgba(0,0,0,.3)}
+
+/* Painel do professor */
+.pn-num{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
+.pn-num div{background:#fff;border-radius:12px;padding:8px 4px;text-align:center;font-size:11px;line-height:1.2}
+.pn-num b{display:block;font-size:22px;font-weight:900;color:var(--verde)}
+.pn-l{display:grid;grid-template-columns:42% 1fr 30px;align-items:center;gap:6px;font-size:12px;margin:3px 0}
+.pn-l span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pn-l i{display:block;height:12px;border-radius:6px;background:var(--verde2);min-width:2px}
+.pn-l b{text-align:right}

@@ -1,0 +1,14 @@
+{
+  "name": "ufmt-ciencia",
+  "private": true,
+  "description": "Gera a biblioteca do Firebase usada pelo jogo (vendor/firebase.bundle.js).",
+  "scripts": {
+    "firebase": "esbuild entry.js --bundle --minify --format=iife --target=es2020 --outfile=vendor/firebase.bundle.js"
+  },
+  "dependencies": {
+    "firebase": "13.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

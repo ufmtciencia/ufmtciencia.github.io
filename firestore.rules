@@ -1,11 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
 match /databases/{database}/documents {
+
+// ---------- Quem está fazendo o pedido
 function logado() { return request.auth != null; }
-function dono(uid) { return logado() && request.auth.uid == uid; }
+function anonimo() { return logado() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+// Adulto: conta Google ou e-mail confirmado (as contas são só para maiores de 18 anos).
+function adulto() { return logado() && !anonimo() && request.auth.token.email_verified == true; }
+// Professores (administradores do jogo): mesma lista do game.js.
+function admin() { return adulto() && request.auth.uid in ['gWnQ3apyOiNOatHYgG36wNIMwFz2']; }
+function caminho(col, id) { return /databases/$(database)/documents/$(col)/$(id); }
+// O adulto logado é o responsável pelo dependente pid.
+function tutorDe(pid) { return adulto() && exists(caminho('dependentes', pid)) && get(caminho('dependentes', pid)).data.tutor == request.auth.uid; }
+// Aparelho do menor, ligado ao perfil pid por um código do responsável.
+function vinculado(pid) { return anonimo() && exists(caminho('vinculos', request.auth.uid)) && get(caminho('vinculos', request.auth.uid)).data.perfil == pid; }
+// Pode jogar com o perfil pid (o próprio adulto, o responsável ou o aparelho do menor).
+function controla(pid) { return (adulto() && request.auth.uid == pid) || tutorDe(pid) || vinculado(pid); }
+function texto(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+
 function perfilValido(d) {
 return d.keys().hasOnly(['apelido', 'pontos', 'nivel', 'especies', 'arenas', 'atualizado'])
-&& d.apelido is string && d.apelido.size() >= 2 && d.apelido.size() <= 20
+&& texto(d.apelido, 2, 20)
 && d.pontos is int && d.pontos >= 0
 && d.nivel is int && d.nivel >= 1 && d.nivel <= 500
 && d.especies is int && d.especies >= 0 && d.especies <= 100
@@ -15,34 +30,102 @@ return d.keys().hasOnly(['apelido', 'pontos', 'nivel', 'especies', 'arenas', 'at
 function conquistaValida(d) {
 return logado()
 && d.keys().hasOnly(['uid', 'apelido', 'avatar', 'parceiro', 'nivel', 'quando'])
-&& d.uid == request.auth.uid
-&& d.apelido is string && d.apelido.size() >= 2 && d.apelido.size() <= 20
-&& d.avatar is string && d.avatar.size() >= 1 && d.avatar.size() <= 16
-&& d.parceiro is string && d.parceiro.size() <= 20
+&& texto(d.uid, 1, 40) && controla(d.uid)
+&& texto(d.apelido, 2, 20)
+&& texto(d.avatar, 1, 16)
+&& texto(d.parceiro, 0, 20)
 && d.nivel is int && d.nivel >= 1 && d.nivel <= 100
 && d.quando == request.time;
 }
-match /jogadores/{uid} {
+function classeValida(d) {
+return d.keys().hasOnly(['tipo', 'tutor', 'faixa', 'escolaridade', 'rede', 'atualizado'])
+&& texto(d.faixa, 1, 40) && texto(d.escolaridade, 1, 40) && texto(d.rede, 1, 40)
+&& d.atualizado == request.time;
+}
+function dependenteValido(d) {
+return d.keys().hasOnly(['tutor', 'apelido', 'avatar', 'criado'])
+&& d.tutor == request.auth.uid
+&& texto(d.apelido, 2, 20) && texto(d.avatar, 1, 16);
+}
+
+// ---------- Ranking (público para quem está logado)
+match /jogadores/{pid} {
 allow read: if logado();
-allow create: if dono(uid) && perfilValido(request.resource.data) && request.resource.data.pontos <= 20000;
-allow update: if dono(uid) && perfilValido(request.resource.data)
+allow create: if controla(pid) && perfilValido(request.resource.data) && request.resource.data.pontos <= 20000;
+allow update: if controla(pid) && perfilValido(request.resource.data)
 && request.time > resource.data.atualizado + duration.value(5, 's')
 && (request.resource.data.pontos == 0 || (request.resource.data.pontos >= resource.data.pontos && request.resource.data.pontos <= resource.data.pontos + 5000));
-allow delete: if dono(uid);
+allow delete: if controla(pid);
 }
-match /progresso/{uid} {
-allow read, delete: if dono(uid);
-allow create, update: if dono(uid)
+
+// ---------- Progresso de cada perfil (privado)
+match /progresso/{pid} {
+allow read, delete: if controla(pid);
+allow create, update: if controla(pid)
 && request.resource.data.keys().hasOnly(['estado', 'atualizado'])
 && request.resource.data.estado is map
 && request.resource.data.atualizado == request.time;
 }
+
+// ---------- Último conquistador das arenas oficiais
 match /arenas/{arenaId} {
 allow read: if logado();
 allow create: if arenaId in ['a0', 'a1', 'a2', 'a3'] && conquistaValida(request.resource.data);
 allow update: if conquistaValida(request.resource.data)
 && request.time > resource.data.quando + duration.value(10, 's');
-allow delete: if logado() && resource.data.uid == request.auth.uid;
+allow delete: if logado() && controla(resource.data.uid);
+}
+
+// ---------- Classificação (faixa de idade, escolaridade, rede): só o dono, o responsável e os professores leem
+match /classificacao/{pid} {
+allow get: if admin() || (adulto() && request.auth.uid == pid) || tutorDe(pid);
+allow list: if admin();
+allow create, update: if classeValida(request.resource.data) && (
+  (adulto() && request.auth.uid == pid && request.resource.data.tipo == 'adulto' && !('tutor' in request.resource.data))
+  || (tutorDe(pid) && request.resource.data.tipo == 'menor' && request.resource.data.tutor == request.auth.uid));
+allow delete: if (adulto() && request.auth.uid == pid) || tutorDe(pid);
+}
+
+// ---------- Dependentes (menores) de um adulto
+match /dependentes/{pid} {
+allow get: if (adulto() && resource.data.tutor == request.auth.uid) || vinculado(pid);
+allow list: if adulto() && resource.data.tutor == request.auth.uid;
+allow create: if adulto() && pid.matches('d_[a-z0-9]{10,20}')
+&& dependenteValido(request.resource.data) && request.resource.data.criado == request.time;
+allow update: if adulto() && resource.data.tutor == request.auth.uid
+&& dependenteValido(request.resource.data) && request.resource.data.criado == resource.data.criado;
+allow delete: if adulto() && resource.data.tutor == request.auth.uid;
+}
+
+// ---------- Código de acesso (15 min, uso único) para o aparelho do menor
+match /codigos/{codigo} {
+allow get: if logado();
+allow list: if false;
+allow create: if codigo.matches('[A-Z2-9]{6}')
+&& request.resource.data.keys().hasOnly(['perfil', 'tutor', 'expira'])
+&& request.resource.data.tutor == request.auth.uid
+&& tutorDe(request.resource.data.perfil)
+&& request.resource.data.expira is timestamp
+&& request.resource.data.expira > request.time
+&& request.resource.data.expira < request.time + duration.value(20, 'm');
+allow delete: if logado();
+}
+
+// ---------- Aparelhos de menores ligados a um perfil de dependente
+function codigoConfere(d) {
+let c = get(caminho('codigos', d.codigo)).data;
+return c.perfil == d.perfil && c.tutor == d.tutor && c.expira > request.time;
+}
+match /vinculos/{vid} {
+allow get: if (logado() && request.auth.uid == vid) || (adulto() && resource.data.tutor == request.auth.uid);
+allow list: if adulto() && resource.data.tutor == request.auth.uid;
+allow create: if anonimo() && request.auth.uid == vid
+&& request.resource.data.keys().hasOnly(['perfil', 'tutor', 'codigo', 'criado'])
+&& request.resource.data.criado == request.time
+&& texto(request.resource.data.codigo, 6, 6)
+&& exists(caminho('codigos', request.resource.data.codigo))
+&& codigoConfere(request.resource.data);
+allow delete: if (logado() && request.auth.uid == vid) || (adulto() && resource.data.tutor == request.auth.uid);
 }
 }
 }

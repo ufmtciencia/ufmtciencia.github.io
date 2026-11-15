@@ -311,6 +311,7 @@ function sortearEspecie() {
   return pick(CRIATURAS.filter(c => c.raridade === rar));
 }
 function criarSpawn() {
+  if (!S.pos) return;
   for (let tent = 0; tent < 20; tent++) {
     const sp = sortearEspecie();
     let p;
@@ -332,6 +333,7 @@ function criarSpawn() {
 }
 function removerSpawn(s) { camadaSpawns.removeLayer(s.mk); spawns = spawns.filter(x => x !== s); }
 function cicloSpawns() {
+  if (!S.pos) return;   // ainda sem posição (antes de escolher GPS ou modo virtual)
   const agora = Date.now();
   spawns.filter(s => s.ate < agora || dist(s.pos, S.pos) > CFG.raioSpawn * 2.2).forEach(removerSpawn);
   if (spawns.length < CFG.maxSpawns) criarSpawn();
@@ -478,7 +480,7 @@ function htmlConquistador(a) {
   const d = Nuvem.arenas[a.id];
   if (!d) return `<div class="conq vazio">👑 Ninguém conquistou esta arena ainda. Seja o primeiro!</div>`;
   const sp = SP[d.parceiro];
-  const voce = d.uid === Nuvem.user.uid;
+  const voce = d.uid === Nuvem.perfil;
   return `<div class="conq"><div class="av-conq">${esc(avatarDe(d.avatar))}</div><div class="f"><span class="mini">👑 Última conquista</span><br><b>${esc(d.apelido)}</b>${voce ? ' (você)' : ''}${sp ? ` · com ${sp.emoji} ${esc(sp.nome)} nv. ${d.nivel | 0}` : ''}<br><span class="mini">${d.quando ? haQuanto(d.quando) : ''}</span></div></div>`;
 }
 function batalha(a, inst) {
@@ -628,26 +630,20 @@ function abrirMenu() {
     <details class="troca-av"><summary>Trocar avatar</summary>${gradeAvatares(avatarDe(S.avatar))}</details>
     <button class="bt" id="bt-modo">${S.modo === 'gps' ? '🕹️ Mudar para modo virtual' : '📍 Usar GPS (estou no campus)'}</button>
     <button class="bt sec" id="bt-ajuda">❓ Como jogar</button>
-    ${ehAdmin() ? '<button class="bt sec" id="bt-prof">🧑‍🏫 Modo professor (editar mapa)</button>' : ''}
-    <button class="bt sec" id="bt-reset">🗑️ Apagar meu progresso</button>
+    ${typeof Nuvem !== 'undefined' && Nuvem.adulto && Nuvem.perfil ? '<button class="bt sec" id="bt-perfis">👨‍👧 Perfis e dependentes</button>' : ''}
+    ${ehAdmin() ? '<button class="bt sec" id="bt-prof">🧑‍🏫 Modo professor (editar mapa)</button><button class="bt sec" id="bt-painel">📊 Painel do professor</button>' : ''}
     ${contaHTML()}
-    <div class="mini" style="margin-top:12px">UFMT Ciência · protótipo · mapa © OpenStreetMap</div>`);
+    <div class="mini" style="margin-top:12px">UFMT Ciência · protótipo · mapa © OpenStreetMap${typeof Nuvem !== 'undefined' && Nuvem.user ? ' · <a href="#" id="bt-privacidade" style="color:inherit">Conta e privacidade</a>' : ''}</div>`);
   p.querySelector('#bt-x').onclick = () => fechar('t-geral');
   ligarGradeAvatares(p, x => { S.avatar = x; salvar(); hud(); p.querySelector('.item-lista .bicho').textContent = x; toast(`Avatar trocado para ${x}`); });
   p.querySelector('#bt-modo').onclick = () => { fechar('t-geral'); mudarModo(S.modo === 'gps' ? 'virtual' : 'gps'); };
   p.querySelector('#bt-ajuda').onclick = abrirAjuda;
   const bs = p.querySelector('#bt-sair-conta'); if (bs) bs.onclick = () => Nuvem.sair();
   const be = p.querySelector('#bt-entrar-conta'); if (be) be.onclick = () => { fechar('t-geral'); store.set('ufmtc_convidado', false); telaLogin(); };
-  const bx = p.querySelector('#bt-excluir-conta');
-  if (bx) bx.onclick = ev => {
-    if (ev.target.dataset.c !== '1') { ev.target.dataset.c = '1'; ev.target.textContent = 'Toque de novo: apaga conta, progresso e ranking para sempre'; ev.target.style.background = '#fde0dc'; return; }
-    Nuvem.excluirConta();
-  };
   const bp = p.querySelector('#bt-prof'); if (bp) bp.onclick = () => { fechar('t-geral'); ligarEditor(true); };
-  p.querySelector('#bt-reset').onclick = ev => {
-    if (ev.target.dataset.c !== '1') { ev.target.dataset.c = '1'; ev.target.textContent = 'Toque de novo para confirmar: apaga tudo'; ev.target.style.background = '#fde0dc'; return; }
-    const uidAntes = S.uid; store.del('ufmtc_estado'); S = ESTADO_NOVO(); S.uid = uidAntes; if (typeof Nuvem !== 'undefined') { Nuvem.pontosNuvem = 0; Nuvem.marcar(); } fechar('t-geral'); spawns.slice().forEach(removerSpawn); desenharLugares(); hud(); boasVindas();
-  };
+  const bpn = p.querySelector('#bt-painel'); if (bpn) bpn.onclick = abrirPainel;
+  const bpf = p.querySelector('#bt-perfis'); if (bpf) bpf.onclick = abrirPerfis;
+  const bpv = p.querySelector('#bt-privacidade'); if (bpv) bpv.onclick = e => { e.preventDefault(); abrirPrivacidade(); };
 }
 function abrirAjuda() {
   const p = abrir('t-geral', `
@@ -694,12 +690,14 @@ function boasVindas() {
 function contaHTML() {
   if (typeof Nuvem === 'undefined' || !Nuvem.ok) return '';
   if (!Nuvem.user) return `<h3>Conta</h3><div class="mini">Jogando como convidado: progresso só neste aparelho.</div><button class="bt" id="bt-entrar-conta">Entrar ou criar conta</button>`;
-  return `<h3>Conta</h3><div class="mini">Conectado como <b>${esc(Nuvem.user.email || '')}</b>. Seu progresso é salvo na nuvem.</div>
-    <button class="bt sec" id="bt-sair-conta">Sair da conta</button>
-    <button class="bt sec" id="bt-excluir-conta" style="color:#c0392b">Excluir minha conta e meus dados</button>`;
+  if (Nuvem.anonimo) return `<h3>Conta</h3><div class="mini">Perfil de dependente, conectado a este aparelho pelo responsável. O progresso é salvo na nuvem.</div>`;
+  return `<h3>Conta</h3><div class="mini">Conectado como <b>${esc(Nuvem.user.email || '')}</b>${Nuvem.dep ? ` · jogando com o perfil de <b>${esc(Nuvem.dep.apelido)}</b>` : ''}. O progresso é salvo na nuvem.</div>
+    <button class="bt sec" id="bt-sair-conta">Sair da conta</button>`;
 }
 function apelidoSugerido() {
+  if (typeof Nuvem !== 'undefined' && Nuvem.dep) return String(Nuvem.dep.apelido || '').slice(0, 20);
   const u = (typeof Nuvem !== 'undefined') && Nuvem.user;
+  if (u && u.isAnonymous) return '';
   if (u && u.displayName) return u.displayName.split(' ')[0].slice(0, 20);
   if (u && u.email) return u.email.split('@')[0].slice(0, 20);
   return '';
