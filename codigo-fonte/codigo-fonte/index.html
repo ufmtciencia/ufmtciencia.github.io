@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1f6f4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>UFMT Ciência</title>
+<meta name="description" content="Jogo educativo de exploração do campus da UFMT com a fauna de Mato Grosso e desafios científicos.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>/*LEAFLET_CSS*/</style>
+<style>/*GAME_CSS*/</style>
+</head>
+<body>
+<div id="mapa"></div>
+<div id="hud">
+  <div id="perfil" class="cartao"><div id="nivel">1</div><div class="info"><div class="nome" id="nome-jog"></div><div class="barra"><i id="xp-barra"></i></div><div class="mini" id="xp-txt" style="font-size:11px;margin-top:2px"></div></div></div>
+  <button id="modo" class="cartao"></button>
+</div>
+<div id="aviso" class="cartao"></div>
+<button id="centralizar" class="bt-redondo" title="Centralizar">🎯</button>
+<div id="barra-inf">
+  <button class="bt-redondo" id="bt-bioguia">📖<small>Bioguia</small></button>
+  <button class="bt-redondo" id="bt-parceiros">🎒<small>Parceiros</small></button>
+  <button class="bt-redondo grande" id="bt-menu">☰</button>
+  <button class="bt-redondo" id="bt-ranking">🏆<small>Ranking</small></button>
+</div>
+<div id="editor-barra" class="cartao"><b>🧑‍🏫 Modo professor</b> · toque no mapa para criar uma estação ou arena; toque num marcador para editar.
+  <div class="linha"><button class="bt sec" id="ed-exportar">📤 Área / exportar</button><button class="bt" id="ed-sair">Sair do modo</button></div></div>
+<div class="tela" id="t-geral"></div>
+<div class="tela" id="t-encontro"></div>
+<div class="tela" id="t-batalha"></div>
+<script>/*LEAFLET_JS*/</script>
+<script>/*GEO*/</script>
+<script>/*MUNDO*/</script>
+<script>/*LUGARES*/</script>
+<script>/*DATA_JS*/</script>
+<script>/*FIREBASE_SDK*/</script>
+<script>/*GAME_JS*/</script>
+<script>/*NUVEM_JS*/</script>
+</body>
+</html>
