@@ -17,6 +17,7 @@ const SALTO_MAX = 4900;     // pontos máximos por gravação (as regras do serv
 const Nuvem = {
   ok: false, auth: null, db: null, user: null,
   sujo: false, ultimo: 0, gravando: false, pontosNuvem: 0, iniciou: false,
+  arenas: {},   // último conquistador de cada arena: { apelido, avatar, parceiro, nivel, uid, quando(ms) }
 
   iniciar() {
     try {
@@ -103,6 +104,47 @@ const Nuvem = {
     } finally { this.gravando = false; }
   },
 
+  /* ---------- Último conquistador das arenas (coleção "arenas") */
+  docArena(d) {
+    const x = d.data();
+    return { ...x, quando: x.quando && x.quando.toMillis ? x.quando.toMillis() : 0 };
+  },
+
+  async carregarArenas() {
+    if (!this.ok || !this.user) return;
+    try {
+      const snap = await FB.getDocs(FB.collection(this.db, 'arenas'));
+      const novo = {};
+      snap.docs.forEach(d => { novo[d.id] = this.docArena(d); });
+      this.arenas = novo;
+    } catch (e) { console.warn('Falha ao ler arenas', e); }
+  },
+
+  async lerArena(id) {
+    if (!this.ok || !this.user) return;
+    try {
+      const d = await FB.getDoc(FB.doc(this.db, 'arenas', id));
+      if (d.exists()) this.arenas[id] = this.docArena(d); else delete this.arenas[id];
+    } catch (e) { console.warn('Falha ao ler arena', e); }
+  },
+
+  async registrarConquista(id, parceiro) {
+    if (!this.ok || !this.user) return false;
+    const dados = {
+      uid: this.user.uid,
+      apelido: String(S.nome || 'Explorador(a)').trim().slice(0, 20).padEnd(2, '_'),
+      avatar: avatarDe(S.avatar),
+      parceiro: String(parceiro.sp || '').slice(0, 20),
+      nivel: Math.min(100, Math.max(1, parceiro.nivel | 0)),
+      quando: FB.serverTimestamp(),
+    };
+    try {
+      await FB.setDoc(FB.doc(this.db, 'arenas', id), dados);
+      this.arenas[id] = { ...dados, quando: Date.now() };
+      return true;
+    } catch (e) { console.warn('Falha ao registrar conquista', e); return false; }
+  },
+
   async sair() {
     await this.gravar(true);
     try { await FB.signOut(this.auth); } catch (e) { }
@@ -115,6 +157,11 @@ const Nuvem = {
     try {
       await FB.deleteDoc(FB.doc(this.db, 'jogadores', u.uid));
       await FB.deleteDoc(FB.doc(this.db, 'progresso', u.uid));
+      // tira o jogador das arenas em que ele aparece como último conquistador
+      try {
+        const minhas = await FB.getDocs(FB.query(FB.collection(this.db, 'arenas'), FB.where('uid', '==', u.uid)));
+        await Promise.all(minhas.docs.map(d => FB.deleteDoc(d.ref)));
+      } catch (e) { console.warn('Falha ao limpar arenas', e); }
       await FB.deleteUser(u);
       store.del('ufmtc_estado'); store.set('ufmtc_convidado', false);
       location.reload();
@@ -166,7 +213,7 @@ function telaLogin() {
     <div class="mini">Explore o campus, registre a fauna de Mato Grosso e vença os desafios científicos.</div></div>
     <label class="mini" style="display:flex;gap:8px;align-items:flex-start;margin:14px 0 4px">
       <input type="checkbox" id="lg-aceite" style="width:auto;margin-top:2px" ${aceitou ? 'checked' : ''}>
-      <span>Concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b> e <b>progresso</b>. Só o apelido e a pontuação aparecem no ranking. Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
+      <span>Concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b> e <b>progresso</b>. Só o apelido, o avatar e a pontuação ficam visíveis para outros jogadores (no ranking e nas arenas). Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
     </label>
     <div id="lg-privtxt" class="explica" style="display:none;font-size:12px">O UFMT Ciência é um projeto educacional da UFMT. Guardamos apenas o necessário para salvar seu progresso e montar o ranking (e-mail, apelido, pontos, nível e conquistas), em servidores do Google Firebase em São Paulo. A localização do GPS é usada só no seu aparelho. Você pode excluir sua conta e todos os seus dados a qualquer momento no Menu. Menores de idade devem jogar com autorização dos responsáveis.</div>
     <button class="bt" id="lg-google" style="background:#fff;color:#1c2a24;border:2px solid #d8cfbd">Entrar com Google</button>

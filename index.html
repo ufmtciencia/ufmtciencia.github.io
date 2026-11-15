@@ -783,6 +783,19 @@ textarea{min-height:90px;font-size:12px;font-family:ui-monospace,monospace}
 #mapa.zoom-baixo .rotulo{display:none}
 
 .pino-ufmt{background:#1f6f4a;color:#fff;font-weight:900;font-size:13px;padding:5px 9px;border-radius:14px;box-shadow:0 3px 8px rgba(0,0,0,.35);white-space:nowrap;text-align:center}
+
+/* Avatar do jogador e último conquistador das arenas */
+.grade-av{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}
+.av{background:#fff;border:none;border-radius:12px;font-size:26px;padding:6px 0;line-height:1.2}
+.av.sel{outline:3px solid var(--verde2);background:#eaf6ee}
+.troca-av{margin:4px 0 8px}
+.troca-av summary{font-size:13px;font-weight:800;cursor:pointer;color:var(--verde2)}
+.conq{display:flex;align-items:center;gap:10px;background:#fff6d5;border:2px solid #d4a017;border-radius:12px;padding:8px 10px;margin:6px 0;font-size:13px}
+.conq .av-conq{font-size:30px}
+.conq .f{flex:1}
+.conq.vazio{display:block;background:#fff;border-style:dashed;color:#6b7a72}
+.mk-arena{position:relative}
+.mk-dono{position:absolute;right:-12px;top:-12px;width:26px;height:26px;border-radius:50%;background:#fff6d5;border:2px solid #d4a017;display:grid;place-items:center;font-size:15px;box-shadow:0 2px 5px rgba(0,0,0,.3)}
 </style>
 </head>
 <body>
@@ -2225,8 +2238,17 @@ const AGUA = GEO ? GEO.features.filter(f => f.properties && (f.properties.natura
 const AQUATICOS = ['jacare', 'ariranha', 'sucuri', 'piranha', 'capivara', 'tuiuiu'];
 
 /* ---------- Estado do jogador */
-const ESTADO_NOVO = () => ({ nome: '', nivel: 1, xp: 0, xpTotal: 0, uid: null, itens: { lupa: 3, fruta: 3 }, parceiros: [], registros: {}, vistos: {}, estacoes: {}, arenas: {}, modo: 'virtual', pos: null, recentes: [] });
+const AVATARES = ['🧑‍🔬', '👩‍🔬', '👨‍🔬', '🧑‍🎓', '🦊', '🐸', '🦉', '🐝', '🌵', '🌻', '🔭', '⚡'];
+const ESTADO_NOVO = () => ({ nome: '', avatar: AVATARES[0], nivel: 1, xp: 0, xpTotal: 0, uid: null, itens: { lupa: 3, fruta: 3 }, parceiros: [], registros: {}, vistos: {}, estacoes: {}, arenas: {}, modo: 'virtual', pos: null, recentes: [] });
 let S = Object.assign(ESTADO_NOVO(), store.get('ufmtc_estado', {}));
+const avatarDe = x => AVATARES.includes(x) ? x : AVATARES[0];
+const gradeAvatares = sel => `<div class="grade-av">${AVATARES.map(a => `<button class="av ${a === sel ? 'sel' : ''}" data-av="${a}">${a}</button>`).join('')}</div>`;
+function ligarGradeAvatares(raiz, aoEscolher) {
+  raiz.querySelectorAll('.av').forEach(b => b.onclick = () => {
+    raiz.querySelectorAll('.av').forEach(x => x.classList.toggle('sel', x === b));
+    aoEscolher(b.dataset.av);
+  });
+}
 const salvar = () => { store.set('ufmtc_estado', S); if (typeof Nuvem !== 'undefined') Nuvem.marcar(); };
 const xpPara = n => 500 * n;
 
@@ -2247,7 +2269,7 @@ function novaInstancia(spId, nivel) {
 /* ---------- Interface: HUD, toast */
 function hud() {
   $('#nivel').textContent = S.nivel;
-  $('#nome-jog').textContent = S.nome || 'Explorador(a)';
+  $('#nome-jog').textContent = `${avatarDe(S.avatar)} ${S.nome || 'Explorador(a)'}`;
   $('#xp-barra').style.width = Math.min(100, S.xp / xpPara(S.nivel) * 100) + '%';
   $('#xp-txt').textContent = `${S.xp} / ${xpPara(S.nivel)} XP · 🔍${S.itens.lupa} 🍈${S.itens.fruta}`;
   const m = $('#modo'); m.className = 'cartao ' + S.modo; m.textContent = S.modo === 'gps' ? '📍 GPS' : '🕹️ Virtual';
@@ -2382,7 +2404,9 @@ function desenharLugares() {
     m.addTo(camadaLugares); mkLugar[e.id] = m;
   });
   LUG.arenas.forEach(a => {
-    const html = `<div class="mk-arena ${S.arenas[a.id] ? 'conquistada' : ''}">${S.arenas[a.id] ? '🏆' : '🏟️'}</div><div class="rotulo">${esc(a.nome)}</div>`;
+    const dono = (typeof Nuvem !== 'undefined' && Nuvem.arenas[a.id]) || null;
+    const selo = dono ? `<div class="mk-dono" title="${esc(dono.apelido)}">${esc(avatarDe(dono.avatar))}</div>` : '';
+    const html = `<div class="mk-arena ${S.arenas[a.id] ? 'conquistada' : ''}">${S.arenas[a.id] ? '🏆' : '🏟️'}${selo}</div><div class="rotulo">${esc(a.nome)}</div>`;
     const m = L.marker([a.lat, a.lng], { icon: L.divIcon({ className: '', html, iconSize: [44, 44], iconAnchor: [22, 22] }), zIndexOffset: 200 });
     m.on('click', ev => { L.DomEvent.stop(ev); EDITOR ? editorForm('arena', a) : abrirArena(a); });
     m.addTo(camadaLugares);
@@ -2534,6 +2558,7 @@ function abrirArena(a) {
     <h2>🏟️ ${esc(a.nome)}</h2>
     <div class="mini">${S.arenas[a.id] ? '🏆 Você já conquistou esta arena. Pode desafiar de novo para treinar.' : 'Vença o guardião para conquistar a arena.'}</div>
     <div class="item-lista" style="margin-top:10px"><div class="bicho">${g.emoji}</div><div class="f"><b>Guardião: ${esc(g.nome)}</b> · nv. ${a.nivel}<br>${etqTipo(g.tipo)}</div></div>
+    <div id="ultimo-conq">${htmlConquistador(a)}</div>
     <h3>Escolha seu parceiro</h3>
     ${lista.length ? `<div class="grade" id="grade-p">${lista.map(i => {
       const sp = SP[i.sp], m = multiplicador(sp.tipo, g.tipo);
@@ -2547,6 +2572,26 @@ function abrirArena(a) {
   marcar();
   const bl = p.querySelector('#bt-lutar');
   if (bl) bl.onclick = () => { fechar('t-geral'); batalha(a, escolhido); };
+  // Atualiza o último conquistador com o dado mais recente da nuvem
+  if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.lerArena(a.id).then(() => {
+    const el = p.querySelector('#ultimo-conq'); if (el && el.isConnected) el.innerHTML = htmlConquistador(a);
+  });
+}
+function haQuanto(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 1) return 'agora há pouco';
+  if (m < 60) return `há ${m} min`;
+  const h = Math.round(m / 60); if (h < 24) return `há ${h} h`;
+  const d = Math.round(h / 24); return d === 1 ? 'ontem' : `há ${d} dias`;
+}
+function htmlConquistador(a) {
+  if (typeof Nuvem === 'undefined' || !Nuvem.ok) return '';
+  if (!Nuvem.user) return `<div class="conq vazio">👑 Entre com uma conta para ver e registrar quem conquistou esta arena.</div>`;
+  const d = Nuvem.arenas[a.id];
+  if (!d) return `<div class="conq vazio">👑 Ninguém conquistou esta arena ainda. Seja o primeiro!</div>`;
+  const sp = SP[d.parceiro];
+  const voce = d.uid === Nuvem.user.uid;
+  return `<div class="conq"><div class="av-conq">${esc(avatarDe(d.avatar))}</div><div class="f"><span class="mini">👑 Última conquista</span><br><b>${esc(d.apelido)}</b>${voce ? ' (você)' : ''}${sp ? ` · com ${sp.emoji} ${esc(sp.nome)} nv. ${d.nivel | 0}` : ''}<br><span class="mini">${d.quando ? haQuanto(d.quando) : ''}</span></div></div>`;
 }
 function batalha(a, inst) {
   const g = novaInstancia(a.guardiao, a.nivel);
@@ -2576,7 +2621,14 @@ function batalha(a, inst) {
       const primeira = !S.arenas[a.id];
       S.arenas[a.id] = true; S.itens.lupa += 3; S.itens.fruta += 2; salvar(); desenharLugares();
       ganharXP(primeira ? 400 : 100, primeira ? 'Arena conquistada!' : 'Treino na arena');
-      area.innerHTML = `<div class="explica" style="border-color:#d4a017"><b>🏆 Vitória!</b> ${primeira ? 'Você conquistou esta arena.' : 'Ótimo treino.'} Recompensa: 3 🔍 e 2 🍈.</div><button class="bt" id="bt-fim">Voltar ao mapa</button>`;
+      const naNuvem = typeof Nuvem !== 'undefined' && Nuvem.user;
+      area.innerHTML = `<div class="explica" style="border-color:#d4a017"><b>🏆 Vitória!</b> ${primeira ? 'Você conquistou esta arena.' : 'Ótimo treino.'} Recompensa: 3 🔍 e 2 🍈.
+        <div class="mini" id="msg-conq" style="margin-top:6px">${naNuvem ? '👑 Registrando você como último conquistador…' : '👑 Entre com uma conta para aparecer como conquistador desta arena.'}</div></div><button class="bt" id="bt-fim">Voltar ao mapa</button>`;
+      if (naNuvem) Nuvem.registrarConquista(a.id, B.p).then(ok => {
+        const m = area.querySelector('#msg-conq');
+        if (m) m.textContent = ok ? `👑 ${avatarDe(S.avatar)} ${S.nome} agora aparece como último conquistador!` : '👑 Não foi possível registrar a conquista agora (verifique a conexão).';
+        desenharLugares();
+      });
     } else {
       area.innerHTML = `<div class="explica" style="border-color:#c0392b"><b>Seu parceiro precisa descansar.</b> Estude um pouco e tente de novo, ou escolha outro parceiro com vantagem de área.</div><button class="bt" id="bt-fim">Voltar ao mapa</button>`;
     }
@@ -2682,7 +2734,8 @@ function abrirMenu() {
   const p = abrir('t-geral', `
     <button class="fechar" id="bt-x">✕</button>
     <h2>☰ Menu</h2>
-    <div class="item-lista"><div class="bicho">🧑‍🔬</div><div class="f"><b>${esc(S.nome)}</b> · nível ${S.nivel}<br>${Object.keys(S.registros).length}/${CRIATURAS.length} espécies · ${conq}/${LUG.arenas.length} arenas</div></div>
+    <div class="item-lista"><div class="bicho">${avatarDe(S.avatar)}</div><div class="f"><b>${esc(S.nome)}</b> · nível ${S.nivel}<br>${Object.keys(S.registros).length}/${CRIATURAS.length} espécies · ${conq}/${LUG.arenas.length} arenas</div></div>
+    <details class="troca-av"><summary>Trocar avatar</summary>${gradeAvatares(avatarDe(S.avatar))}</details>
     <button class="bt" id="bt-modo">${S.modo === 'gps' ? '🕹️ Mudar para modo virtual' : '📍 Usar GPS (estou no campus)'}</button>
     <button class="bt sec" id="bt-ajuda">❓ Como jogar</button>
     <button class="bt sec" id="bt-prof">🧑‍🏫 Modo professor (editar mapa)</button>
@@ -2690,6 +2743,7 @@ function abrirMenu() {
     ${contaHTML()}
     <div class="mini" style="margin-top:12px">UFMT Ciência · protótipo · mapa © OpenStreetMap</div>`);
   p.querySelector('#bt-x').onclick = () => fechar('t-geral');
+  ligarGradeAvatares(p, x => { S.avatar = x; salvar(); hud(); p.querySelector('.item-lista .bicho').textContent = x; toast(`Avatar trocado para ${x}`); });
   p.querySelector('#bt-modo').onclick = () => { fechar('t-geral'); mudarModo(S.modo === 'gps' ? 'virtual' : 'gps'); };
   p.querySelector('#bt-ajuda').onclick = abrirAjuda;
   const bs = p.querySelector('#bt-sair-conta'); if (bs) bs.onclick = () => Nuvem.sair();
@@ -2724,6 +2778,7 @@ function boasVindas() {
     <h2>🌿 Bem-vindo(a) ao UFMT Ciência!</h2>
     <div class="mini">Explore o campus, registre animais de Mato Grosso e vença os desafios científicos das arenas.</div>
     <h3>Seu apelido no jogo</h3><input id="in-nome" maxlength="20" placeholder="Apelido (aparece no ranking)" value="${esc(apelidoSugerido())}">
+    <h3>Seu avatar</h3>${gradeAvatares(avatarDe(S.avatar))}
     <h3>Escolha seu primeiro parceiro</h3>
     <div class="grade">${iniciais.map(id => `<button class="ficha" data-id="${id}"><div class="bicho">${SP[id].emoji}</div><div class="nm">${SP[id].nome}<br>${TIPOS[SP[id].tipo].icone} ${TIPOS[SP[id].tipo].nome}</div></button>`).join('')}</div>
     <button class="bt" id="bt-gps">📍 Jogar com GPS (estou no campus)</button>
@@ -2731,10 +2786,12 @@ function boasVindas() {
   $('#t-geral').dataset.trava = '1';
   const marcar = () => p.querySelectorAll('.ficha').forEach(f => f.classList.toggle('sel', f.dataset.id === ini));
   p.querySelectorAll('.ficha').forEach(f => f.onclick = () => { ini = f.dataset.id; marcar(); }); marcar();
+  let av = avatarDe(S.avatar);
+  ligarGradeAvatares(p, x => { av = x; });
   const comecar = modo => {
     const nm = (p.querySelector('#in-nome').value || '').trim();
     if (nm.length < 2) return toast('O apelido precisa ter pelo menos 2 letras.');
-    S.nome = nm.slice(0, 20);
+    S.nome = nm.slice(0, 20); S.avatar = av;
     S.parceiros = [novaInstancia(ini, 5)]; S.registros[ini] = 1; S.vistos[ini] = true;
     salvar(); fechar('t-geral'); hud(); jogoIniciado = true; mudarModo(modo);
     for (let i = 0; i < CFG.maxSpawns; i++) criarSpawn();
@@ -2760,6 +2817,7 @@ function apelidoSugerido() {
 let jogoIniciado = false;
 function entrarNoJogo() {
   hud(); desenharLugares();
+  if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.carregarArenas().then(desenharLugares);
   spawns.slice().forEach(removerSpawn);
   if (!S.nome) { boasVindas(); return; }
   if (!jogoIniciado) { jogoIniciado = true; mudarModo(S.modo === 'gps' ? 'gps' : 'virtual'); }
@@ -2875,6 +2933,7 @@ const SALTO_MAX = 4900;     // pontos máximos por gravação (as regras do serv
 const Nuvem = {
   ok: false, auth: null, db: null, user: null,
   sujo: false, ultimo: 0, gravando: false, pontosNuvem: 0, iniciou: false,
+  arenas: {},   // último conquistador de cada arena: { apelido, avatar, parceiro, nivel, uid, quando(ms) }
 
   iniciar() {
     try {
@@ -2961,6 +3020,47 @@ const Nuvem = {
     } finally { this.gravando = false; }
   },
 
+  /* ---------- Último conquistador das arenas (coleção "arenas") */
+  docArena(d) {
+    const x = d.data();
+    return { ...x, quando: x.quando && x.quando.toMillis ? x.quando.toMillis() : 0 };
+  },
+
+  async carregarArenas() {
+    if (!this.ok || !this.user) return;
+    try {
+      const snap = await FB.getDocs(FB.collection(this.db, 'arenas'));
+      const novo = {};
+      snap.docs.forEach(d => { novo[d.id] = this.docArena(d); });
+      this.arenas = novo;
+    } catch (e) { console.warn('Falha ao ler arenas', e); }
+  },
+
+  async lerArena(id) {
+    if (!this.ok || !this.user) return;
+    try {
+      const d = await FB.getDoc(FB.doc(this.db, 'arenas', id));
+      if (d.exists()) this.arenas[id] = this.docArena(d); else delete this.arenas[id];
+    } catch (e) { console.warn('Falha ao ler arena', e); }
+  },
+
+  async registrarConquista(id, parceiro) {
+    if (!this.ok || !this.user) return false;
+    const dados = {
+      uid: this.user.uid,
+      apelido: String(S.nome || 'Explorador(a)').trim().slice(0, 20).padEnd(2, '_'),
+      avatar: avatarDe(S.avatar),
+      parceiro: String(parceiro.sp || '').slice(0, 20),
+      nivel: Math.min(100, Math.max(1, parceiro.nivel | 0)),
+      quando: FB.serverTimestamp(),
+    };
+    try {
+      await FB.setDoc(FB.doc(this.db, 'arenas', id), dados);
+      this.arenas[id] = { ...dados, quando: Date.now() };
+      return true;
+    } catch (e) { console.warn('Falha ao registrar conquista', e); return false; }
+  },
+
   async sair() {
     await this.gravar(true);
     try { await FB.signOut(this.auth); } catch (e) { }
@@ -2973,6 +3073,11 @@ const Nuvem = {
     try {
       await FB.deleteDoc(FB.doc(this.db, 'jogadores', u.uid));
       await FB.deleteDoc(FB.doc(this.db, 'progresso', u.uid));
+      // tira o jogador das arenas em que ele aparece como último conquistador
+      try {
+        const minhas = await FB.getDocs(FB.query(FB.collection(this.db, 'arenas'), FB.where('uid', '==', u.uid)));
+        await Promise.all(minhas.docs.map(d => FB.deleteDoc(d.ref)));
+      } catch (e) { console.warn('Falha ao limpar arenas', e); }
       await FB.deleteUser(u);
       store.del('ufmtc_estado'); store.set('ufmtc_convidado', false);
       location.reload();
@@ -3024,7 +3129,7 @@ function telaLogin() {
     <div class="mini">Explore o campus, registre a fauna de Mato Grosso e vença os desafios científicos.</div></div>
     <label class="mini" style="display:flex;gap:8px;align-items:flex-start;margin:14px 0 4px">
       <input type="checkbox" id="lg-aceite" style="width:auto;margin-top:2px" ${aceitou ? 'checked' : ''}>
-      <span>Concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b> e <b>progresso</b>. Só o apelido e a pontuação aparecem no ranking. Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
+      <span>Concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b> e <b>progresso</b>. Só o apelido, o avatar e a pontuação ficam visíveis para outros jogadores (no ranking e nas arenas). Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
     </label>
     <div id="lg-privtxt" class="explica" style="display:none;font-size:12px">O UFMT Ciência é um projeto educacional da UFMT. Guardamos apenas o necessário para salvar seu progresso e montar o ranking (e-mail, apelido, pontos, nível e conquistas), em servidores do Google Firebase em São Paulo. A localização do GPS é usada só no seu aparelho. Você pode excluir sua conta e todos os seus dados a qualquer momento no Menu. Menores de idade devem jogar com autorização dos responsáveis.</div>
     <button class="bt" id="lg-google" style="background:#fff;color:#1c2a24;border:2px solid #d8cfbd">Entrar com Google</button>

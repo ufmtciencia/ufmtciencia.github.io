@@ -5,7 +5,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;font-family:'Nunito',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--tinta);background:#cfe3d4}
 button{font-family:inherit;cursor:pointer}
-#mapa{position:absolute;inset:0;z-index:1;background:#dfeee3}
+#mapa{position:absolute;inset:0;z-index:1;background:#a8d4e6}
 #mapa.sem-tiles{background-color:#d9ead9;background-image:
   linear-gradient(rgba(31,111,74,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(31,111,74,.10) 1px,transparent 1px);
   background-size:40px 40px}
@@ -110,3 +110,16 @@ textarea{min-height:90px;font-size:12px;font-family:ui-monospace,monospace}
 #mapa.zoom-baixo .rotulo{display:none}
 
 .pino-ufmt{background:#1f6f4a;color:#fff;font-weight:900;font-size:13px;padding:5px 9px;border-radius:14px;box-shadow:0 3px 8px rgba(0,0,0,.35);white-space:nowrap;text-align:center}
+
+/* Avatar do jogador e último conquistador das arenas */
+.grade-av{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}
+.av{background:#fff;border:none;border-radius:12px;font-size:26px;padding:6px 0;line-height:1.2}
+.av.sel{outline:3px solid var(--verde2);background:#eaf6ee}
+.troca-av{margin:4px 0 8px}
+.troca-av summary{font-size:13px;font-weight:800;cursor:pointer;color:var(--verde2)}
+.conq{display:flex;align-items:center;gap:10px;background:#fff6d5;border:2px solid #d4a017;border-radius:12px;padding:8px 10px;margin:6px 0;font-size:13px}
+.conq .av-conq{font-size:30px}
+.conq .f{flex:1}
+.conq.vazio{display:block;background:#fff;border-style:dashed;color:#6b7a72}
+.mk-arena{position:relative}
+.mk-dono{position:absolute;right:-12px;top:-12px;width:26px;height:26px;border-radius:50%;background:#fff6d5;border:2px solid #d4a017;display:grid;place-items:center;font-size:15px;box-shadow:0 2px 5px rgba(0,0,0,.3)}
