@@ -39,7 +39,7 @@ allow create, update: if dono(uid)
 }
 match /arenas/{arenaId} {
 allow read: if logado();
-allow create: if arenaId.size() <= 40 && conquistaValida(request.resource.data);
+allow create: if arenaId in ['a0', 'a1', 'a2', 'a3'] && conquistaValida(request.resource.data);
 allow update: if conquistaValida(request.resource.data)
 && request.time > resource.data.quando + duration.value(10, 's');
 allow delete: if logado() && resource.data.uid == request.auth.uid;

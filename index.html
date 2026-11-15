@@ -2216,6 +2216,14 @@ function lugaresPadrao() {
 }
 let LUG = store.get('ufmtc_lugares', null) || lugaresPadrao();
 const salvarLugares = () => store.set('ufmtc_lugares', LUG);
+// Mapa oficial (o publicado no jogo). Batalhas, recompensas e conquistas sempre usam estes dados.
+const LUG_OFICIAL = lugaresPadrao();
+const oficial = (lista, x) => (LUG_OFICIAL[lista] || []).find(o => o.id === x.id) || null;
+// Contas de professor (administradores do jogo), pelo UID do Firebase Authentication.
+const ADMINS = [
+  'gWnQ3apyOiNOatHYgG36wNIMwFz2', // João Basso Marques
+];
+const ehAdmin = () => typeof Nuvem !== 'undefined' && !!Nuvem.user && ADMINS.includes(Nuvem.user.uid);
 
 /* Área do jogo: o contorno real da UFMT (se houver mapa) ou um círculo. */
 const AREA_POLI = (() => {
@@ -2527,6 +2535,8 @@ function abrirEncontro(s) {
 
 /* ---------- Estação científica */
 function abrirEstacao(e) {
+  const eo = oficial('estacoes', e);
+  e = eo ? { ...e, ...eo } : { ...e, teste: true };
   if (longe(e.lat, e.lng)) return;
   const ult = S.estacoes[e.id] || 0, falta = CFG.recargaEstacao - (Date.now() - ult);
   const cur = e.texto || pick(CURIOSIDADES);
@@ -2539,6 +2549,7 @@ function abrirEstacao(e) {
   p.querySelector('#bt-x').onclick = () => fechar('t-geral');
   const g = p.querySelector('#bt-girar');
   if (g) g.onclick = () => {
+    if (e.teste) { g.outerHTML = `<div class="explica">🧪 Estação de teste (modo professor): não dá recompensas nem XP. Para valer no jogo, exporte o mapa e publique.</div>`; return; }
     const lupa = rint(1, 2), fruta = rint(0, 2);
     S.itens.lupa += lupa; S.itens.fruta += fruta; S.estacoes[e.id] = Date.now(); salvar();
     g.outerHTML = `<div class="explica" style="border-color:#d4a017">Você recebeu <b>${lupa} 🔍 lupa${lupa > 1 ? 's' : ''}</b>${fruta ? ` e <b>${fruta} 🍈 fruta${fruta > 1 ? 's' : ''}</b>` : ''}.</div>`;
@@ -2549,6 +2560,8 @@ function abrirEstacao(e) {
 /* ---------- Arena e batalha */
 function multiplicador(a, b) { return TIPOS[a].vence === b ? 1.5 : TIPOS[b].vence === a ? 0.75 : 1; }
 function abrirArena(a) {
+  const ao = oficial('arenas', a);
+  a = ao ? { ...a, ...ao } : { ...a, teste: true };
   if (longe(a.lat, a.lng)) return;
   const g = SP[a.guardiao];
   const lista = S.parceiros.slice().sort((x, y) => y.nivel - x.nivel);
@@ -2573,7 +2586,7 @@ function abrirArena(a) {
   const bl = p.querySelector('#bt-lutar');
   if (bl) bl.onclick = () => { fechar('t-geral'); batalha(a, escolhido); };
   // Atualiza o último conquistador com o dado mais recente da nuvem
-  if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.lerArena(a.id).then(() => {
+  if (!a.teste && typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.lerArena(a.id).then(() => {
     const el = p.querySelector('#ultimo-conq'); if (el && el.isConnected) el.innerHTML = htmlConquistador(a);
   });
 }
@@ -2585,6 +2598,7 @@ function haQuanto(ms) {
   const d = Math.round(h / 24); return d === 1 ? 'ontem' : `há ${d} dias`;
 }
 function htmlConquistador(a) {
+  if (a.teste) return `<div class="conq vazio">🧪 Arena de teste (modo professor): vitórias aqui não dão XP nem registram conquistador.</div>`;
   if (typeof Nuvem === 'undefined' || !Nuvem.ok) return '';
   if (!Nuvem.user) return `<div class="conq vazio">👑 Entre com uma conta para ver e registrar quem conquistou esta arena.</div>`;
   const d = Nuvem.arenas[a.id];
@@ -2617,7 +2631,9 @@ function batalha(a, inst) {
   const tremer = id => { const el = p.querySelector(id); el.classList.remove('dano'); void el.offsetWidth; el.classList.add('dano'); };
   const fim = venceu => {
     const area = p.querySelector('#area-q');
-    if (venceu) {
+    if (venceu && a.teste) {
+      area.innerHTML = `<div class="explica" style="border-color:#d4a017"><b>🧪 Vitória na arena de teste.</b> Arenas criadas no modo professor não dão XP, recompensas nem registro de conquistador.</div><button class="bt" id="bt-fim">Voltar ao mapa</button>`;
+    } else if (venceu) {
       const primeira = !S.arenas[a.id];
       S.arenas[a.id] = true; S.itens.lupa += 3; S.itens.fruta += 2; salvar(); desenharLugares();
       ganharXP(primeira ? 400 : 100, primeira ? 'Arena conquistada!' : 'Treino na arena');
@@ -2738,7 +2754,7 @@ function abrirMenu() {
     <details class="troca-av"><summary>Trocar avatar</summary>${gradeAvatares(avatarDe(S.avatar))}</details>
     <button class="bt" id="bt-modo">${S.modo === 'gps' ? '🕹️ Mudar para modo virtual' : '📍 Usar GPS (estou no campus)'}</button>
     <button class="bt sec" id="bt-ajuda">❓ Como jogar</button>
-    <button class="bt sec" id="bt-prof">🧑‍🏫 Modo professor (editar mapa)</button>
+    ${ehAdmin() ? '<button class="bt sec" id="bt-prof">🧑‍🏫 Modo professor (editar mapa)</button>' : ''}
     <button class="bt sec" id="bt-reset">🗑️ Apagar meu progresso</button>
     ${contaHTML()}
     <div class="mini" style="margin-top:12px">UFMT Ciência · protótipo · mapa © OpenStreetMap</div>`);
@@ -2753,7 +2769,7 @@ function abrirMenu() {
     if (ev.target.dataset.c !== '1') { ev.target.dataset.c = '1'; ev.target.textContent = 'Toque de novo: apaga conta, progresso e ranking para sempre'; ev.target.style.background = '#fde0dc'; return; }
     Nuvem.excluirConta();
   };
-  p.querySelector('#bt-prof').onclick = () => { fechar('t-geral'); ligarEditor(true); };
+  const bp = p.querySelector('#bt-prof'); if (bp) bp.onclick = () => { fechar('t-geral'); ligarEditor(true); };
   p.querySelector('#bt-reset').onclick = ev => {
     if (ev.target.dataset.c !== '1') { ev.target.dataset.c = '1'; ev.target.textContent = 'Toque de novo para confirmar: apaga tudo'; ev.target.style.background = '#fde0dc'; return; }
     const uidAntes = S.uid; store.del('ufmtc_estado'); S = ESTADO_NOVO(); S.uid = uidAntes; if (typeof Nuvem !== 'undefined') { Nuvem.pontosNuvem = 0; Nuvem.marcar(); } fechar('t-geral'); spawns.slice().forEach(removerSpawn); desenharLugares(); hud(); boasVindas();
@@ -2816,6 +2832,10 @@ function apelidoSugerido() {
 }
 let jogoIniciado = false;
 function entrarNoJogo() {
+  if (!ehAdmin()) {
+    if (EDITOR) ligarEditor(false);
+    if (store.get('ufmtc_lugares', null)) { store.del('ufmtc_lugares'); LUG = lugaresPadrao(); }
+  }
   hud(); desenharLugares();
   if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.carregarArenas().then(() => Nuvem.registrarHistorico()).then(desenharLugares);
   spawns.slice().forEach(removerSpawn);
@@ -2827,6 +2847,7 @@ function entrarNoJogo() {
 /* ---------- Modo professor (editor de lugares) */
 let EDITOR = false;
 function ligarEditor(on) {
+  if (on && !ehAdmin()) { toast('O modo professor é só para contas de professor.'); return; }
   EDITOR = on;
   $('#editor-barra').style.display = on ? 'block' : 'none';
   $('#barra-inf').style.display = on ? 'none' : 'flex';
@@ -3065,7 +3086,7 @@ const Nuvem = {
      já venceu e que ainda não têm ninguém registrado (nunca passa por cima de uma conquista registrada). */
   async registrarHistorico() {
     if (!this.ok || !this.user || !S.nome) return;
-    const vencidas = LUG.arenas.filter(a => S.arenas[a.id] && !this.arenas[a.id]);
+    const vencidas = LUG_OFICIAL.arenas.filter(a => S.arenas[a.id] && !this.arenas[a.id]);
     if (!vencidas.length) return;
     const melhor = S.parceiros.slice().sort((x, y) => y.nivel - x.nivel)[0];
     if (!melhor) return;

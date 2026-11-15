@@ -149,7 +149,7 @@ const Nuvem = {
      já venceu e que ainda não têm ninguém registrado (nunca passa por cima de uma conquista registrada). */
   async registrarHistorico() {
     if (!this.ok || !this.user || !S.nome) return;
-    const vencidas = LUG.arenas.filter(a => S.arenas[a.id] && !this.arenas[a.id]);
+    const vencidas = LUG_OFICIAL.arenas.filter(a => S.arenas[a.id] && !this.arenas[a.id]);
     if (!vencidas.length) return;
     const melhor = S.parceiros.slice().sort((x, y) => y.nivel - x.nivel)[0];
     if (!melhor) return;
