@@ -691,7 +691,7 @@ function apelidoSugerido() {
 let jogoIniciado = false;
 function entrarNoJogo() {
   hud(); desenharLugares();
-  if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.carregarArenas().then(desenharLugares);
+  if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.carregarArenas().then(() => Nuvem.registrarHistorico()).then(desenharLugares);
   spawns.slice().forEach(removerSpawn);
   if (!S.nome) { boasVindas(); return; }
   if (!jogoIniciado) { jogoIniciado = true; mudarModo(S.modo === 'gps' ? 'gps' : 'virtual'); }

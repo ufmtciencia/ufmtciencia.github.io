@@ -145,6 +145,23 @@ const Nuvem = {
     } catch (e) { console.warn('Falha ao registrar conquista', e); return false; }
   },
 
+  /* Conquistas feitas antes do registro de conquistadores existir: registra o jogador nas arenas que ele
+     já venceu e que ainda não têm ninguém registrado (nunca passa por cima de uma conquista registrada). */
+  async registrarHistorico() {
+    if (!this.ok || !this.user || !S.nome) return;
+    const vencidas = LUG.arenas.filter(a => S.arenas[a.id] && !this.arenas[a.id]);
+    if (!vencidas.length) return;
+    const melhor = S.parceiros.slice().sort((x, y) => y.nivel - x.nivel)[0];
+    if (!melhor) return;
+    for (const a of vencidas) {
+      try {
+        const d = await FB.getDoc(FB.doc(this.db, 'arenas', a.id));   // confere de novo logo antes de gravar
+        if (d.exists()) { this.arenas[a.id] = this.docArena(d); continue; }
+        await this.registrarConquista(a.id, melhor);
+      } catch (e) { console.warn('Falha ao registrar histórico da arena', a.id, e); }
+    }
+  },
+
   async sair() {
     await this.gravar(true);
     try { await FB.signOut(this.auth); } catch (e) { }
