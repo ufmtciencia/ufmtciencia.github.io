@@ -235,9 +235,16 @@ function moverJogador(p, suave) {
   if (seguir) map.panTo(p, { animate: !!suave, duration: 0.3 });
   atualizarProximidade();
 }
+// Perfis novos (conta nova, dependente, aparelho do menor) começam sem posição: põe o jogador no ponto inicial do campus.
+function garantirPosicao(centralizar) {
+  if (S.pos && S.pos.length === 2 && isFinite(S.pos[0]) && isFinite(S.pos[1])) return;
+  S.pos = (LUG.inicio || LUG.centro).slice();
+  if (jogMk) { seguir = true; moverJogador(S.pos, false); if (centralizar && map) map.setView(S.pos, Math.max(map.getZoom(), 17)); }
+}
 let andarAnim = null;
 function andarAte(dest) {
   if (!dentroArea(dest)) { toast('Esse ponto fica fora do campus.'); return; }
+  garantirPosicao(false);
   cancelAnimationFrame(andarAnim);
   seguir = true;
   const ini = S.pos.slice(), d = dist(ini, dest), dur = Math.max(250, d / CFG.velVirtual * 1000), t0 = performance.now();
@@ -708,6 +715,7 @@ function entrarNoJogo() {
     if (EDITOR) ligarEditor(false);
     if (store.get('ufmtc_lugares', null)) { store.del('ufmtc_lugares'); LUG = lugaresPadrao(); }
   }
+  garantirPosicao(true);
   hud(); desenharLugares();
   if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.carregarArenas().then(() => Nuvem.registrarHistorico()).then(desenharLugares);
   spawns.slice().forEach(removerSpawn);
@@ -806,3 +814,15 @@ function iniciar() {
   if (typeof Nuvem !== 'undefined') Nuvem.iniciar(); else entrarNoJogo();
 }
 window.addEventListener('load', iniciar);
+
+/* ---------- Erros inesperados: mostra um aviso em vez de travar em silêncio (ajuda a diagnosticar no celular) */
+let ultimoErroT = 0;
+function avisarErro(msg) {
+  if (!msg || /^Script error\.?$/i.test(msg) || /ResizeObserver/.test(msg)) return;
+  console.error(msg);
+  if (Date.now() - ultimoErroT < 10000) return;
+  ultimoErroT = Date.now();
+  try { toast(`⚠️ Algo deu errado: <span style="font-weight:400">${esc(String(msg).slice(0, 140))}</span><br><span class="mini" style="color:#fff">Se o jogo parar de responder, recarregue a página. Um print desta mensagem ajuda a corrigir.</span>`, 7000); } catch (e) { }
+}
+window.addEventListener('error', ev => { if (ev && ev.message) avisarErro(ev.message); });
+window.addEventListener('unhandledrejection', ev => { const r = ev && ev.reason; avisarErro(r && (r.message || r.code) ? (r.message || r.code) : ''); });

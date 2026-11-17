@@ -2368,9 +2368,16 @@ function moverJogador(p, suave) {
   if (seguir) map.panTo(p, { animate: !!suave, duration: 0.3 });
   atualizarProximidade();
 }
+// Perfis novos (conta nova, dependente, aparelho do menor) começam sem posição: põe o jogador no ponto inicial do campus.
+function garantirPosicao(centralizar) {
+  if (S.pos && S.pos.length === 2 && isFinite(S.pos[0]) && isFinite(S.pos[1])) return;
+  S.pos = (LUG.inicio || LUG.centro).slice();
+  if (jogMk) { seguir = true; moverJogador(S.pos, false); if (centralizar && map) map.setView(S.pos, Math.max(map.getZoom(), 17)); }
+}
 let andarAnim = null;
 function andarAte(dest) {
   if (!dentroArea(dest)) { toast('Esse ponto fica fora do campus.'); return; }
+  garantirPosicao(false);
   cancelAnimationFrame(andarAnim);
   seguir = true;
   const ini = S.pos.slice(), d = dist(ini, dest), dur = Math.max(250, d / CFG.velVirtual * 1000), t0 = performance.now();
@@ -2841,6 +2848,7 @@ function entrarNoJogo() {
     if (EDITOR) ligarEditor(false);
     if (store.get('ufmtc_lugares', null)) { store.del('ufmtc_lugares'); LUG = lugaresPadrao(); }
   }
+  garantirPosicao(true);
   hud(); desenharLugares();
   if (typeof Nuvem !== 'undefined' && Nuvem.user) Nuvem.carregarArenas().then(() => Nuvem.registrarHistorico()).then(desenharLugares);
   spawns.slice().forEach(removerSpawn);
@@ -2939,6 +2947,18 @@ function iniciar() {
   if (typeof Nuvem !== 'undefined') Nuvem.iniciar(); else entrarNoJogo();
 }
 window.addEventListener('load', iniciar);
+
+/* ---------- Erros inesperados: mostra um aviso em vez de travar em silêncio (ajuda a diagnosticar no celular) */
+let ultimoErroT = 0;
+function avisarErro(msg) {
+  if (!msg || /^Script error\.?$/i.test(msg) || /ResizeObserver/.test(msg)) return;
+  console.error(msg);
+  if (Date.now() - ultimoErroT < 10000) return;
+  ultimoErroT = Date.now();
+  try { toast(`⚠️ Algo deu errado: <span style="font-weight:400">${esc(String(msg).slice(0, 140))}</span><br><span class="mini" style="color:#fff">Se o jogo parar de responder, recarregue a página. Um print desta mensagem ajuda a corrigir.</span>`, 7000); } catch (e) { }
+}
+window.addEventListener('error', ev => { if (ev && ev.message) avisarErro(ev.message); });
+window.addEventListener('unhandledrejection', ev => { const r = ev && ev.reason; avisarErro(r && (r.message || r.code) ? (r.message || r.code) : ''); });
 </script>
 <script>/* =====================================================================
    UFMT CIÊNCIA — CONTAS, PROGRESSO NA NUVEM E RANKING (Firebase, plano gratuito)
@@ -3380,7 +3400,7 @@ function telaLogin() {
     <div class="mini">Explore o campus, registre a fauna de Mato Grosso e vença os desafios científicos.</div></div>
     <label class="mini" style="display:flex;gap:8px;align-items:flex-start;margin:14px 0 4px">
       <input type="checkbox" id="lg-aceite" style="width:auto;margin-top:2px" ${aceitou ? 'checked' : ''}>
-      <span>Tenho <b>18 anos ou mais</b> e concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b>, <b>progresso</b> e as informações de faixa de idade e escolaridade (só para estatísticas). Só o apelido, o avatar e a pontuação ficam visíveis para outros jogadores. Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
+      <span>Concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b>, <b>progresso</b> e as informações de faixa de idade e escolaridade (só para estatísticas). Só o apelido, o avatar e a pontuação ficam visíveis para outros jogadores. Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
     </label>
     <div id="lg-privtxt" class="explica" style="display:none;font-size:12px">O UFMT Ciência é um projeto educacional da UFMT. As contas são para maiores de 18 anos. Menores de idade jogam em um <b>perfil de dependente</b> criado por um responsável dentro da conta dele, sem e-mail nem nome real. Guardamos apenas o necessário para salvar o progresso, montar o ranking e produzir estatísticas agregadas (faixa de idade, escolaridade e rede de ensino), em servidores do Google Firebase em São Paulo. A localização do GPS é usada só no seu aparelho. Você pode excluir sua conta, seus dependentes e todos os dados a qualquer momento em Menu → Conta e privacidade.</div>
     <button class="bt" id="lg-google" style="background:#fff;color:#1c2a24;border:2px solid #d8cfbd">Entrar com Google</button>
@@ -3394,7 +3414,7 @@ function telaLogin() {
     <button class="bt sec" id="lg-conv" style="margin-top:4px">Jogar como convidado <span class="mini">(sem ranking, salvo só neste aparelho)</span></button>`, true);
   $('#t-geral').dataset.trava = '1';
   const msg = t => { p.querySelector('#lg-msg').textContent = t || ''; };
-  const aceite = () => { const ok = p.querySelector('#lg-aceite').checked; if (!ok) msg('Marque a caixa: as contas são para maiores de 18 anos.'); else store.set('ufmtc_aceite', true); return ok; };
+  const aceite = () => { const ok = p.querySelector('#lg-aceite').checked; if (!ok) msg('Marque a caixa de consentimento para continuar.'); else store.set('ufmtc_aceite', true); return ok; };
   const ocupado = b => p.querySelectorAll('button').forEach(x => x.disabled = b);
   p.querySelector('#lg-priv').onclick = e => { e.preventDefault(); const t = p.querySelector('#lg-privtxt'); t.style.display = t.style.display === 'none' ? 'block' : 'none'; };
   p.querySelector('#lg-google').onclick = async () => {

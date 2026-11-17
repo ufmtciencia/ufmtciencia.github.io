@@ -438,7 +438,7 @@ function telaLogin() {
     <div class="mini">Explore o campus, registre a fauna de Mato Grosso e vença os desafios científicos.</div></div>
     <label class="mini" style="display:flex;gap:8px;align-items:flex-start;margin:14px 0 4px">
       <input type="checkbox" id="lg-aceite" style="width:auto;margin-top:2px" ${aceitou ? 'checked' : ''}>
-      <span>Tenho <b>18 anos ou mais</b> e concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b>, <b>progresso</b> e as informações de faixa de idade e escolaridade (só para estatísticas). Só o apelido, o avatar e a pontuação ficam visíveis para outros jogadores. Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
+      <span>Concordo que o jogo guarde meu <b>e-mail</b>, <b>apelido</b>, <b>progresso</b> e as informações de faixa de idade e escolaridade (só para estatísticas). Só o apelido, o avatar e a pontuação ficam visíveis para outros jogadores. Minha localização <b>não</b> é enviada. <a href="#" id="lg-priv">Saiba mais</a></span>
     </label>
     <div id="lg-privtxt" class="explica" style="display:none;font-size:12px">O UFMT Ciência é um projeto educacional da UFMT. As contas são para maiores de 18 anos. Menores de idade jogam em um <b>perfil de dependente</b> criado por um responsável dentro da conta dele, sem e-mail nem nome real. Guardamos apenas o necessário para salvar o progresso, montar o ranking e produzir estatísticas agregadas (faixa de idade, escolaridade e rede de ensino), em servidores do Google Firebase em São Paulo. A localização do GPS é usada só no seu aparelho. Você pode excluir sua conta, seus dependentes e todos os dados a qualquer momento em Menu → Conta e privacidade.</div>
     <button class="bt" id="lg-google" style="background:#fff;color:#1c2a24;border:2px solid #d8cfbd">Entrar com Google</button>
@@ -452,7 +452,7 @@ function telaLogin() {
     <button class="bt sec" id="lg-conv" style="margin-top:4px">Jogar como convidado <span class="mini">(sem ranking, salvo só neste aparelho)</span></button>`, true);
   $('#t-geral').dataset.trava = '1';
   const msg = t => { p.querySelector('#lg-msg').textContent = t || ''; };
-  const aceite = () => { const ok = p.querySelector('#lg-aceite').checked; if (!ok) msg('Marque a caixa: as contas são para maiores de 18 anos.'); else store.set('ufmtc_aceite', true); return ok; };
+  const aceite = () => { const ok = p.querySelector('#lg-aceite').checked; if (!ok) msg('Marque a caixa de consentimento para continuar.'); else store.set('ufmtc_aceite', true); return ok; };
   const ocupado = b => p.querySelectorAll('button').forEach(x => x.disabled = b);
   p.querySelector('#lg-priv').onclick = e => { e.preventDefault(); const t = p.querySelector('#lg-privtxt'); t.style.display = t.style.display === 'none' ? 'block' : 'none'; };
   p.querySelector('#lg-google').onclick = async () => {
